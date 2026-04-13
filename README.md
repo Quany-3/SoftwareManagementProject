@@ -1,2 +1,2 @@
-# SoftManagerProject
+# SoftwareManagementProject
 **项目名称**：用户行为采集软件（针对 LLM 应用程序的多轮对话） **项目核心**：使用用户旅程图或其它数据结构记录和描述用户操作过程，并结合有效的方法进行用户体验分析。
