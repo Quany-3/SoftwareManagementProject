@@ -1,0 +1,1235 @@
+<html lang="zh-CN">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>
+   LLM对话平台用户行为分析系统
+  </title>
+  <script src="https://res.gemcoder.com/js/reload.js">
+  </script>
+  <script src="https://cdn.tailwindcss.com">
+  </script>
+  <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+  <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js">
+  </script>
+  <script>
+   tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: '#165DFF',
+        secondary: '#6B7280',
+        success: '#10B981',
+        warning: '#F59E0B',
+        danger: '#EF4444',
+        background: '#F9FAFB'
+      },
+      spacing: {
+        '128': '32rem'
+      }
+    }
+  }
+};
+  </script>
+  <style type="text/tailwindcss">
+   @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .chat-bubble-user {
+                @apply bg-primary text-white rounded-lg rounded-tr-none p-4 max-w-[80%];
+            }
+            .chat-bubble-ai {
+                @apply bg-gray-100 text-gray-800 rounded-lg rounded-tl-none p-4 max-w-[80%];
+            }
+        }
+  </style>
+ </head>
+ <body class="bg-background min-h-screen">
+  <!-- [MODULE] 7x2_整体布局 -->
+  <div class="flex h-screen overflow-hidden">
+   <!-- [MODULE] x9z_会话列表侧边栏 -->
+<aside class="w-64 bg-white border-r border-gray-200 flex flex-col hidden md:block">
+    <div class="flex-1 overflow-y-auto scrollbar-hide p-2" id="session-list">
+     <!-- 会话列表将通过JS动态生成 -->
+    </div>
+   </aside>
+   <!-- [/MODULE] x9z_会话列表侧边栏 -- 包含新建会话按钮和会话列表，支持会话切换与删除 -->
+   <!-- [MODULE] 9a1_侧边导航 -->
+   <aside class="w-64 bg-white shadow-md hidden md:block">
+    <div class="p-5 border-b">
+     <h1 class="text-xl font-bold text-primary flex items-center">
+      <i class="fas fa-brain mr-2">
+      </i>
+      <span>
+       LLM行为分析
+      </span>
+     </h1>
+    </div>
+    <nav class="p-4">
+     <p class="text-xs uppercase text-gray-500 font-semibold mb-2">
+      对话平台
+     </p>
+     <a class="flex items-center p-3 rounded-lg bg-primary/10 text-primary mb-1" href="#chat-platform">
+      <i class="fas fa-comments mr-3">
+      </i>
+      <span>
+       对话界面
+      </span>
+     </a>
+     <p class="text-xs uppercase text-gray-500 font-semibold mb-2 mt-6">
+      管理后台
+     </p>
+     <a class="flex items-center p-3 rounded-lg hover:bg-gray-100 mb-1 transition-colors" href="#overview">
+      <i class="fas fa-chart-pie mr-3">
+      </i>
+      <span>
+       概览统计
+      </span>
+     </a>
+     <a class="flex items-center p-3 rounded-lg hover:bg-gray-100 mb-1 transition-colors" href="#journey">
+      <i class="fas fa-map mr-3">
+      </i>
+      <span>
+       用户旅程图
+      </span>
+     </a>
+     <a class="flex items-center p-3 rounded-lg hover:bg-gray-100 mb-1 transition-colors" href="#churn">
+      <i class="fas fa-filter mr-3">
+      </i>
+      <span>
+       流失分析
+      </span>
+     </a>
+    </nav>
+    <div class="absolute bottom-0 w-full p-4 border-t">
+     <div class="flex items-center p-2">
+      <img alt="User avatar" class="w-10 h-10 rounded-full mr-3" src="https://api.dicebear.com/7.x/avataaars/svg?seed=admin"/>
+      <div>
+       <p class="font-medium">
+        管理员
+       </p>
+       <p class="text-xs text-gray-500">
+        分析账号
+       </p>
+      </div>
+     </div>
+    </div>
+   </aside>
+   <!-- [/MODULE] 9a1_侧边导航 -- 系统主导航菜单 -->
+   <!-- [MODULE] k42_主内容区域 -->
+   <main class="flex-1 overflow-auto">
+    <!-- [MODULE] p98_顶部导航栏 -->
+    <header class="bg-white shadow-sm p-4 flex md:hidden items-center justify-between">
+     <h1 class="text-lg font-bold text-primary flex items-center">
+      <i class="fas fa-brain mr-2">
+      </i>
+      <span>
+       LLM行为分析
+      </span>
+     </h1>
+     <button class="text-gray-500 p-2">
+      <i class="fas fa-bars">
+      </i>
+     </button>
+    </header>
+    <!-- [/MODULE] p98_顶部导航栏 -- 移动端顶部导航 -->
+    <!-- [MODULE] 85c_对话平台页面 -->
+    <div class="p-4 md:p-6" id="chat-platform">
+     <!-- 移动端会话切换按钮 -->
+     <div class="md:hidden mb-4">
+      <button class="flex items-center gap-2 text-primary" id="mobile-session-toggle">
+       <i class="fas fa-list">
+       </i>
+       <span>
+        切换会话
+       </span>
+      </button>
+     </div>
+<!-- [MODULE] z1f_对话平台:页面标题 -->
+     <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
+      <div>
+       <h2 class="text-2xl font-bold text-gray-800">
+        LLM对话平台
+       </h2>
+       <p class="text-gray-500 mt-1">
+        在此区域与AI对话，所有操作行为会被自动采集并分析
+       </p>
+      </div>
+      <div class="mt-4 md:mt-0 flex items-center gap-3">
+        <!-- 对话选择下拉菜单 -->
+        <div class="relative">
+          <button class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2" id="session-select-btn">
+            <i class="fas fa-comments"></i>
+            <span id="current-session-title">当前对话</span>
+            <i class="fas fa-chevron-down text-xs"></i>
+          </button>
+          <div class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg hidden z-10" id="session-dropdown">
+            <div class="p-2 border-b border-gray-200">
+              <button class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-lg flex items-center gap-2" id="new-session-btn">
+                <i class="fas fa-plus text-primary"></i>
+                <span>新建对话</span>
+              </button>
+            </div>
+            <div class="max-h-60 overflow-y-auto scrollbar-hide" id="session-dropdown-list">
+              <!-- 会话列表将通过JS动态生成 -->
+            </div>
+          </div>
+        </div>
+       <button class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors" id="clear-history">
+        <i class="fas fa-eraser mr-1">
+        </i>
+        清空对话
+       </button>
+       <button class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors" id="view-analysis">
+        <i class="fas fa-chart-line mr-1">
+        </i>
+        查看分析
+       </button>
+      </div>
+     </div>
+     <!-- [/MODULE] z1f_对话平台:页面标题 -- 包含页面标题、对话选择菜单、新建会话按钮和操作按钮 -->
+     <!-- [MODULE] a73_对话平台:对话区域 -->
+     <div class="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col" style="height: calc(100vh - 200px);">
+      <div class="p-3 border-b border-gray-200 flex items-center justify-between">
+       <h2 class="text-lg font-medium" id="current-chat-title">
+        新会话
+       </h2>
+       <button class="text-gray-400 hover:text-danger" id="delete-current-chat" title="删除当前会话">
+        <i class="fas fa-trash">
+        </i>
+       </button>
+      </div>
+      <div class="flex-1 p-4 overflow-y-auto scrollbar-hide" id="chat-container">
+       <!-- 欢迎消息 -->
+       <div class="flex mb-6">
+        <div class="chat-bubble-ai">
+         <p>
+          👋 你好！我是AI助手。你可以随时向我提问，你的所有交互行为都会被记录用于体验分析。请开始对话吧！
+         </p>
+        </div>
+       </div>
+      </div>
+      <!-- [MODULE] 3bc_对话平台:输入区域 -->
+      <div class="border-t p-4">
+       <div class="flex items-end gap-2">
+        <textarea class="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none" id="user-input" placeholder="输入你的问题..." rows="1">
+        </textarea>
+        <button class="bg-primary text-white p-3 rounded-lg hover:bg-primary/90 transition-colors h-[auto]" id="send-button">
+         <i class="fas fa-paper-plane">
+         </i>
+        </button>
+       </div>
+       <div class="mt-2 text-xs text-gray-500">
+        <p>
+         支持的交互行为: 提问、点赞、点踩、复制内容、等待响应过程中取消，这些行为都会被自动记录分析
+        </p>
+       </div>
+      </div>
+      <!-- [/MODULE] 3bc_对话平台:输入区域 -- 用户输入和发送功能 -->
+     </div>
+     <!-- [/MODULE] a73_对话平台:对话区域 -- 包含对话内容展示和用户输入 -->
+    </div>
+    <!-- [/MODULE] 85c_对话平台页面 -- 用户与AI对话功能 -->
+    <!-- [MODULE] 9v4_概览统计页面 -->
+    <div class="p-4 md:p-6 hidden" id="overview">
+     <!-- [MODULE] 62d_概览:页面标题 -->
+     <div class="mb-6">
+      <h2 class="text-2xl font-bold text-gray-800">
+       概览统计
+      </h2>
+      <p class="text-gray-500 mt-1">
+       关键指标和用户行为总览
+      </p>
+     </div>
+     <!-- [/MODULE] 62d_概览:页面标题 -- 页面标题和说明 -->
+     <!-- [MODULE] c3s_概览:指标卡片 -->
+     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+      <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-primary">
+       <div class="flex justify-between">
+        <div>
+         <p class="text-gray-500 text-sm">
+          总对话次数
+         </p>
+         <h3 class="text-3xl font-bold mt-1" id="total-conversations">
+          128
+         </h3>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+         <i class="fas fa-comments text-xl">
+         </i>
+        </div>
+       </div>
+       <div class="mt-3 text-sm">
+        <span class="text-green-500">
+         <i class="fas fa-arrow-up">
+         </i>
+         12.5%
+        </span>
+        <span class="text-gray-500 ml-1">
+         相比上周
+        </span>
+       </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-success">
+       <div class="flex justify-between">
+        <div>
+         <p class="text-gray-500 text-sm">
+          平均响应时间
+         </p>
+         <h3 class="text-3xl font-bold mt-1" id="avg-response-time">
+          1.8s
+         </h3>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center text-success">
+         <i class="fas fa-clock text-xl">
+         </i>
+        </div>
+       </div>
+       <div class="mt-3 text-sm">
+        <span class="text-green-500">
+         <i class="fas fa-arrow-down">
+         </i>
+         0.5s
+        </span>
+        <span class="text-gray-500 ml-1">
+         相比上周
+        </span>
+       </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-warning">
+       <div class="flex justify-between">
+        <div>
+         <p class="text-gray-500 text-sm">
+          用户满意度
+         </p>
+         <h3 class="text-3xl font-bold mt-1" id="satisfaction-rate">
+          86%
+         </h3>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center text-warning">
+         <i class="fas fa-star text-xl">
+         </i>
+        </div>
+       </div>
+       <div class="mt-3 text-sm">
+        <span class="text-green-500">
+         <i class="fas fa-arrow-up">
+         </i>
+         2.3%
+        </span>
+        <span class="text-gray-500 ml-1">
+         相比上周
+        </span>
+       </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-danger">
+       <div class="flex justify-between">
+        <div>
+         <p class="text-gray-500 text-sm">
+          错误率
+         </p>
+         <h3 class="text-3xl font-bold mt-1" id="error-rate">
+          3.2%
+         </h3>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center text-danger">
+         <i class="fas fa-exclamation-triangle text-xl">
+         </i>
+        </div>
+       </div>
+       <div class="mt-3 text-sm">
+        <span class="text-red-500">
+         <i class="fas fa-arrow-up">
+         </i>
+         0.8%
+        </span>
+        <span class="text-gray-500 ml-1">
+         相比上周
+        </span>
+       </div>
+      </div>
+     </div>
+     <!-- [/MODULE] c3s_概览:指标卡片 -- 展示核心指标卡片 -->
+     <!-- [MODULE] 84a_概览:图表区域 -->
+     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white p-4 rounded-xl shadow-sm">
+       <h3 class="font-semibold p-2 mb-4">
+        行为类型分布
+       </h3>
+       <div class="h-80 w-full" id="behavior-chart">
+       </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm">
+       <h3 class="font-semibold p-2 mb-4">
+        每日活跃对话趋势
+       </h3>
+       <div class="h-80 w-full" id="trend-chart">
+       </div>
+      </div>
+     </div>
+     <!-- [/MODULE] 84a_概览:图表区域 -- 分布和趋势图 -->
+    </div>
+    <!-- [/MODULE] 9v4_概览统计页面 -- 关键指标统计展示 -->
+    <!-- [MODULE] m7w_用户旅程图页面 -->
+    <div class="p-4 md:p-6 hidden" id="journey">
+     <!-- [MODULE] 21a_旅程图:页面标题 -->
+     <div class="mb-6">
+      <h2 class="text-2xl font-bold text-gray-800">
+       用户旅程图
+      </h2>
+      <p class="text-gray-500 mt-1">
+       展示用户完整对话过程中的行为和体验
+      </p>
+     </div>
+     <!-- [/MODULE] 21a_旅程图:页面标题 -- 页面标题和说明 -->
+     <!-- [MODULE] t9d_旅程图:时间线展示 -->
+     <div class="bg-white rounded-xl shadow-sm p-6">
+      <div class="relative pl-8 before:absolute before:left-3 before:top-0 before:h-full before:w-0.5 before:bg-gray-200" id="journey-timeline">
+       <!-- 时间线内容由JS动态生成 -->
+      </div>
+     </div>
+     <!-- [/MODULE] t9d_旅程图:时间线展示 -- 用户行为时间线可视化 -->
+    </div>
+    <!-- [/MODULE] m7w_用户旅程图页面 -- 用户旅程时间线展示 -->
+    <!-- [MODULE] 45b_流失分析页面 -->
+    <div class="p-4 md:p-6 hidden" id="churn">
+     <!-- [MODULE] f33_流失分析:页面标题 -->
+     <div class="mb-6">
+      <h2 class="text-2xl font-bold text-gray-800">
+       流失分析
+      </h2>
+      <p class="text-gray-500 mt-1">
+       用户对话流程各阶段转化率和流失率分析
+      </p>
+     </div>
+     <!-- [/MODULE] f33_流失分析:页面标题 -- 页面标题和说明 -->
+     <!-- [MODULE] h7s_流失分析:漏斗图 -->
+     <div class="grid grid-cols-1 gap-6">
+      <div class="bg-white p-4 rounded-xl shadow-sm">
+       <h3 class="font-semibold p-2 mb-4">
+        对话转化漏斗
+       </h3>
+       <div class="h-96 w-full" id="funnel-chart">
+       </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm">
+       <h3 class="font-semibold p-2 mb-4">
+        流失原因分布
+       </h3>
+       <div class="h-80 w-full" id="reason-chart">
+       </div>
+      </div>
+     </div>
+     <!-- [/MODULE] h7s_流失分析:漏斗图 -- 漏斗图展示用户流失 -->
+    </div>
+    <!-- [/MODULE] 45b_流失分析页面 -- 转化率和流失原因分析 -->
+   </main>
+   <!-- [/MODULE] k42_主内容区域 -- 所有页面内容区域 -->
+  </div>
+  <!-- [/MODULE] 7x2_整体布局 -- 应用整体布局 -->
+  <!-- 行为记录弹窗 -->
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50" id="behavior-modal">
+   <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+    <h3 class="text-lg font-bold mb-4">
+     行为已记录
+    </h3>
+    <p class="mb-4" id="behavior-message">
+     用户行为已成功记录到分析系统
+    </p>
+    <div class="flex justify-end">
+     <button class="bg-primary text-white px-4 py-2 rounded-lg" id="close-modal">
+      确认
+     </button>
+    </div>
+   </div>
+  </div>
+  <!-- 保证hidden样式优先级正确 -->
+  <style>
+   #behavior-modal.hidden {
+            display: none !important;
+        }
+  </style>
+  <script>
+   // 存储用户行为数据
+var userBehaviorData = {
+  behaviors: [],
+  conversations: [{
+    id: 1,
+    messages: [{
+      role: 'ai',
+      content: '👋 你好！我是AI助手。你可以随时向我提问，你的所有交互行为都会被记录用于体验分析。请开始对话吧！'
+    }]
+  }],
+  journeySteps: [{
+    id: 1,
+    stage: '登录系统',
+    time: '00:00:01',
+    behavior: '用户登录对话平台',
+    emotion: 'positive',
+    duration: 2000,
+    status: 'completed'
+  }, {
+    id: 2,
+    stage: '开始对话',
+    time: '00:00:15',
+    behavior: '用户发起首次对话',
+    emotion: 'neutral',
+    duration: 3000,
+    status: 'completed'
+  }],
+  funnelData: [{
+    name: '访问页面',
+    value: 1000
+  }, {
+    name: '发起对话',
+    value: 750
+  }, {
+    name: '多轮对话',
+    value: 480
+  }, {
+    name: '点赞满意',
+    value: 256
+  }, {
+    name: '持续使用',
+    value: 125
+  }]
+};
+// 模拟AI响应
+var aiResponses = ["这是一个很好的问题。根据我的理解，这个问题可以从几个方面来分析...", "我理解你的需求。让我为你提供一些有用的信息和建议...", "感谢你的提问。这里是我的回答，希望能帮助到你...", "这是一个复杂的话题，我会尽量用简单的方式来解释...", "让我思考一下，根据现有知识，我认为应该这么理解..."];
+  </script>
+  <!-- [JSMOD] 2as_导航切换功能 -->
+  <script id="navigation-js">
+   document.addEventListener('DOMContentLoaded', function () {
+  // 获取所有导航链接
+  var navLinks = document.querySelectorAll('nav a');
+  navLinks.forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      // 移除所有激活状态
+      document.querySelectorAll('nav a').forEach(function (a) {
+        a.classList.remove('bg-primary/10', 'text-primary');
+        a.classList.add('hover:bg-gray-100');
+      });
+      // 添加当前激活状态
+      this.classList.add('bg-primary/10', 'text-primary');
+      this.classList.remove('hover:bg-gray-100');
+
+      // 隐藏所有内容区域
+      document.querySelectorAll('#chat-platform, #overview, #journey, #churn').forEach(function (section) {
+        section.classList.add('hidden');
+      });
+
+      // 显示对应内容区域
+      var targetId = this.getAttribute('href').substring(1);
+      var targetSection = document.getElementById(targetId);
+      if (targetSection) {
+        targetSection.classList.remove('hidden');
+      }
+    });
+  });
+  // 查看分析按钮
+  document.getElementById('view-analysis').addEventListener('click', function () {
+    document.querySelector('nav a[href="#overview"]').click();
+  });
+});
+  </script>
+  <!-- [/JSMOD] 2as_导航切换功能 -- 处理菜单导航和页面切换 -->
+  <!-- [JSMOD] 9dk_对话功能 -->
+  <script id="chat-js">
+   document.addEventListener('DOMContentLoaded', function () {
+  var chatContainer = document.getElementById('chat-container');
+  var userInput = document.getElementById('user-input');
+  var sendButton = document.getElementById('send-button');
+  var clearButton = document.getElementById('clear-history');
+
+  // 自动调整文本框高度
+  userInput.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+  });
+
+  // 发送消息
+  function sendMessage() {
+    var message = userInput.value.trim();
+    if (!message) return;
+
+    // 记录用户提问行为
+    recordBehavior('user_question', {
+      question: message
+    });
+
+    // 添加用户消息到界面
+    addMessageToChat('user', message);
+
+    // 清空输入框
+    userInput.value = '';
+    userInput.style.height = 'auto';
+
+    // 滚动到底部
+    scrollToBottom();
+
+    // 模拟AI思考
+    var thinkingTime = Math.floor(Math.random() * 2000) + 1000;
+    var startTime = Date.now();
+
+    // 添加AI思考中气泡
+    var thinkingDiv = document.createElement('div');
+    thinkingDiv.className = 'flex mb-6 thinking';
+    thinkingDiv.innerHTML = "<div class=\"chat-bubble-ai\">\n                <div class=\"flex space-x-2\">\n                    <div class=\"w-2 h-2 rounded-full bg-gray-400 animate-bounce\"></div>\n                    <div class=\"w-2 h-2 rounded-full bg-gray-400 animate-bounce\" style=\"animation-delay: 0.2s\"></div>\n                    <div class=\"w-2 h-2 rounded-full bg-gray-400 animate-bounce\" style=\"animation-delay: 0.4s\"></div>\n                </div>\n            </div>";
+    chatContainer.appendChild(thinkingDiv);
+    scrollToBottom();
+
+    // 记录等待开始
+    recordBehavior('ai_thinking_start', {
+      waitTime: thinkingTime
+    });
+
+    // 超时响应
+    setTimeout(function () {
+      // 移除思考中
+      if (thinkingDiv.parentNode) {
+        thinkingDiv.parentNode.removeChild(thinkingDiv);
+      }
+      var responseTime = Date.now() - startTime;
+      recordBehavior('ai_response_sent', {
+        responseTime: responseTime
+      });
+
+      // 随机选择一个回复
+      var randomIndex = Math.floor(Math.random() * aiResponses.length);
+      var aiResponse = aiResponses[randomIndex];
+
+      // 添加AI回复
+      addMessageToChat('ai', aiResponse);
+      scrollToBottom();
+
+      // 添加到旅程图
+      addJourneyStep('AI响应完成', "".concat(responseTime, "ms"), "\u7528\u6237\u63D0\u95EE:".concat(message.substring(0, 30)).concat(message.length > 30 ? '...' : ''), getEmotionByTime(responseTime));
+    }, thinkingTime);
+  }
+
+  // 添加消息到聊天容器
+  function addMessageToChat(role, content) {
+    var messageDiv = document.createElement('div');
+    messageDiv.className = "flex mb-6".concat(role === 'user' ? 'justify-end' : 'justify-start');
+    var actionsHtml = '';
+    if (role === 'ai') {
+      actionsHtml = "<div class=\"mt-2 pt-2 border-t border-gray-200 flex items-center gap-2\">\n                    <button class=\"like-btn text-gray-400 hover:text-success transition-colors\" title=\"\u70B9\u8D5E\">\n                        <i class=\"fas fa-thumbs-up\"></i>\n                    </button>\n                    <button class=\"dislike-btn text-gray-400 hover:text-danger transition-colors\" title=\"\u70B9\u8E29\">\n                        <i class=\"fas fa-thumbs-down\"></i>\n                    </button>\n                    <button class=\"copy-btn text-gray-400 hover:text-primary transition-colors\" title=\"\u590D\u5236\">\n                        <i class=\"fas fa-copy\"></i>\n                    </button>\n                </div>\n            ;";
+    }
+    var bubbleClass = role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai';
+    messageDiv.innerHTML = "<div class=\"".concat(bubbleClass, "\">\n                <p>").concat(content, "</p>").concat(actionsHtml, "</div>");
+    chatContainer.appendChild(messageDiv);
+
+    // 绑定事件
+    if (role === 'ai') {
+      var likeBtn = messageDiv.querySelector('.like-btn');
+      var dislikeBtn = messageDiv.querySelector('.dislike-btn');
+      var copyBtn = messageDiv.querySelector('.copy-btn');
+      likeBtn.addEventListener('click', function () {
+        if (!this.classList.contains('text-success')) {
+          recordBehavior('message_like', {
+            content: content
+          });
+          addJourneyStep('用户点赞', getCurrentTime(), '用户对AI回复点赞', 'positive');
+          this.classList.remove('text-gray-400');
+          this.classList.add('text-success');
+          showBehaviorRecorded('点赞行为已记录');
+        }
+      });
+      dislikeBtn.addEventListener('click', function () {
+        if (!this.classList.contains('text-danger')) {
+          recordBehavior('message_dislike', {
+            content: content
+          });
+          addJourneyStep('用户点踩', getCurrentTime(), '用户对AI回复点踩', 'negative');
+          this.classList.remove('text-gray-400');
+          this.classList.add('text-danger');
+          showBehaviorRecorded('点踩行为已记录');
+        }
+      });
+      copyBtn.addEventListener('click', function () {
+        navigator.clipboard.writeText(content).then(function () {
+          recordBehavior('message_copy', {
+            content: content
+          });
+          addJourneyStep('复制内容', getCurrentTime(), '用户复制了AI回复内容', 'neutral');
+          showBehaviorRecorded('内容已复制，行为已记录');
+        });
+      });
+    }
+  }
+
+  // 滚动到底部
+  function scrollToBottom() {
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+
+  // 清空历史
+  clearButton.addEventListener('click', function () {
+    chatContainer.innerHTML = "<div class=\"flex mb-6\">\n                <div class=\"chat-bubble-ai\">\n                    <p>\uD83D\uDC4B \u4F60\u597D\uFF01\u6211\u662FAI\u52A9\u624B\u3002\u4F60\u53EF\u4EE5\u968F\u65F6\u5411\u6211\u63D0\u95EE\uFF0C\u4F60\u7684\u6240\u6709\u4EA4\u4E92\u884C\u4E3A\u90FD\u4F1A\u88AB\u8BB0\u5F55\u7528\u4E8E\u4F53\u9A8C\u5206\u6790\u3002\u8BF7\u5F00\u59CB\u5BF9\u8BDD\u5427\uFF01</p>\n                </div>\n            </div>";
+    recordBehavior('clear_history', {});
+    addJourneyStep('清空对话', getCurrentTime(), '用户清空了对话历史', 'neutral');
+  });
+
+  // 发送按钮点击
+  sendButton.addEventListener('click', sendMessage);
+
+  // 回车发送
+  userInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+});
+  </script>
+  <!-- [/JSMOD] 9dk_对话功能 -- 处理对话相关功能和行为记录 -->
+  <!-- [JSMOD] 4fg_行为记录功能 -->
+  <script id="behavior-js">
+   // 记录用户行为
+function recordBehavior(type, data) {
+  userBehaviorData.behaviors.push({
+    type: type,
+    data: data,
+    timestamp: new Date().toISOString()
+  });
+
+  // 更新指标
+  updateMetrics();
+}
+// 显示行为已记录弹窗
+function showBehaviorRecorded(message) {
+  var modal = document.getElementById('behavior-modal');
+  var behaviorMsg = document.getElementById('behavior-message');
+  behaviorMsg.textContent = message;
+  modal.classList.remove('hidden');
+  document.getElementById('close-modal').addEventListener('click', function () {
+    modal.classList.add('hidden');
+  });
+
+  // 点击蒙层关闭
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+    }
+  });
+}
+// 根据响应时间获取情绪
+function getEmotionByTime(time) {
+  if (time < 1000) return 'positive';
+  if (time < 2000) return 'neutral';
+  return 'negative';
+}
+// 获取当前时间
+function getCurrentTime() {
+  var date = new Date();
+  return "".concat(padZero(date.getHours()), ":").concat(padZero(date.getMinutes()), ":").concat(padZero(date.getSeconds()));
+}
+function padZero(num) {
+  return num < 10 ? '0' + num : num;
+}
+// 更新指标卡片
+function updateMetrics() {
+  var totalConversations = document.getElementById('total-conversations');
+  if (totalConversations) {
+    var current = parseInt(totalConversations.textContent);
+    totalConversations.textContent = current + 1;
+  }
+}
+  </script>
+  <!-- [/JSMOD] 4fg_行为记录功能 -- 处理用户行为记录和弹窗显示 -->
+  <!-- [JSMOD] 8jk_旅程图功能 -->
+  <script id="journey-js">
+   // 添加旅程步骤
+function addJourneyStep(stage, time, behavior, emotion) {
+  userBehaviorData.journeySteps.push({
+    id: userBehaviorData.journeySteps.length + 1,
+    stage: stage,
+    time: time,
+    behavior: behavior,
+    emotion: emotion,
+    duration: 0,
+    status: 'completed'
+  });
+
+  // 如果旅程图已经显示，更新界面
+  renderJourneyTimeline();
+}
+// 渲染旅程时间线
+function renderJourneyTimeline() {
+  var container = document.getElementById('journey-timeline');
+  if (!container) return;
+  container.innerHTML = '';
+  userBehaviorData.journeySteps.forEach(function (step) {
+    var item = document.createElement('div');
+    item.className = 'mb-8 relative';
+    var emotionColor = step.emotion === 'positive' ? 'bg-green-500' : step.emotion === 'negative' ? 'bg-red-500' : 'bg-blue-500';
+    var emotionBg = step.emotion === 'positive' ? 'bg-green-50' : step.emotion === 'negative' ? 'bg-red-50' : 'bg-blue-50';
+    var emotionBorder = step.emotion === 'positive' ? 'border-green-200' : step.emotion === 'negative' ? 'border-red-200' : 'border-blue-200';
+    item.innerHTML = "<div class=\"absolute -left-11 top-1 w-6 h-6 rounded-full".concat(emotionColor, "flex items-center justify-center text-white\">\n                <i class=\"fas fa-check text-xs\"></i>\n            </div>\n            <div class=\"p-4 border rounded-lg").concat(emotionBg, "").concat(emotionBorder, "\">\n                <div class=\"flex flex-col sm:flex-row sm:items-center justify-between mb-2\">\n                    <h4 class=\"font-bold text-gray-800\">").concat(step.stage, "</h4>\n                    <span class=\"text-sm text-gray-500\">").concat(step.time, "</span>\n                </div>\n                <p class=\"text-gray-600\">").concat(step.behavior, "</p>\n            </div>");
+    container.appendChild(item);
+  });
+}
+// 页面显示后渲染
+document.addEventListener('DOMContentLoaded', function () {
+  // 监听导航点击渲染旅程图
+  document.querySelector('a[href="#journey"]').addEventListener('click', function () {
+    setTimeout(renderJourneyTimeline, 100);
+  });
+
+  // 初始渲染
+  renderJourneyTimeline();
+});
+  </script>
+  <!-- [/JSMOD] 8jk_旅程图功能 -- 渲染用户旅程时间线 -->
+  <!-- [JSMOD] 7ae_图表初始化 -->
+  <script id="charts-init">
+   window.addEventListener('load', function () {
+  // 行为分布饼图
+  var behaviorChart = echarts.init(document.getElementById('behavior-chart'));
+  if (behaviorChart) {
+    var behaviorOption = {
+      tooltip: {
+        trigger: 'item'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left'
+      },
+      series: [{
+        name: '行为类型',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 10,
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: {
+          show: false,
+          position: 'center'
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 18,
+            fontWeight: 'bold'
+          }
+        },
+        labelLine: {
+          show: false
+        },
+        data: [{
+          value: 320,
+          name: '用户提问',
+          itemStyle: {
+            color: '#165DFF'
+          }
+        }, {
+          value: 280,
+          name: 'AI响应',
+          itemStyle: {
+            color: '#10B981'
+          }
+        }, {
+          value: 65,
+          name: '点赞',
+          itemStyle: {
+            color: '#36D399'
+          }
+        }, {
+          value: 28,
+          name: '点踩',
+          itemStyle: {
+            color: '#F87272'
+          }
+        }, {
+          value: 120,
+          name: '复制内容',
+          itemStyle: {
+            color: '#F59E0B'
+          }
+        }, {
+          value: 18,
+          name: '报错',
+          itemStyle: {
+            color: '#EF4444'
+          }
+        }]
+      }]
+    };
+    behaviorChart.setOption(behaviorOption);
+  }
+
+  // 趋势图
+  var trendChart = echarts.init(document.getElementById('trend-chart'));
+  if (trendChart) {
+    var trendOption = {
+      tooltip: {
+        trigger: 'axis'
+      },
+      xAxis: {
+        type: 'category',
+        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+      },
+      yAxis: {
+        type: 'value',
+        name: '对话次数'
+      },
+      series: [{
+        name: '对话数量',
+        data: [18, 25, 30, 22, 45, 52, 38],
+        type: 'line',
+        smooth: true,
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+            offset: 0,
+            color: 'rgba(22, 93, 255, 0.4)'
+          }, {
+            offset: 1,
+            color: 'rgba(22, 93, 255, 0.05)'
+          }])
+        },
+        lineStyle: {
+          color: '#165DFF',
+          width: 2
+        }
+      }]
+    };
+    trendChart.setOption(trendOption);
+  }
+
+  // 漏斗图
+  var funnelChart = echarts.init(document.getElementById('funnel-chart'));
+  if (funnelChart) {
+    var funnelData = userBehaviorData.funnelData;
+    var funnelOption = {
+      tooltip: {
+        trigger: 'item',
+        formatter: '{a} <br/>{b}: {c}'
+      },
+      series: [{
+        name: '用户漏斗',
+        type: 'funnel',
+        left: 100,
+        top: 60,
+        bottom: 60,
+        width: '80%',
+        min: 0,
+        max: 1000,
+        minSize: '10%',
+        maxSize: '100%',
+        sort: 'descending',
+        gap: 2,
+        label: {
+          show: true,
+          position: 'inside',
+          formatter: '{b}: {c}',
+          fontSize: 16
+        },
+        itemStyle: {
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        emphasis: {
+          label: {
+            fontSize: 20
+          }
+        },
+        data: funnelData
+      }]
+    };
+    funnelChart.setOption(funnelOption);
+  }
+
+  // 流失原因
+  var reasonChart = echarts.init(document.getElementById('reason-chart'));
+  if (reasonChart) {
+    var reasonOption = {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'shadow'
+        }
+      },
+      xAxis: {
+        type: 'value'
+      },
+      yAxis: {
+        type: 'category',
+        data: ['响应太慢', '回答质量差', '体验不好', '找不到答案', '其他原因']
+      },
+      series: [{
+        type: 'bar',
+        data: [120, 108, 80, 65, 20],
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [{
+            offset: 0,
+            color: '#165DFF'
+          }, {
+            offset: 1,
+            color: '#809fff'
+          }])
+        }
+      }]
+    };
+    reasonChart.setOption(reasonOption);
+  }
+
+  // 监听窗口变化
+  window.addEventListener('resize', function () {
+    behaviorChart && behaviorChart.resize();
+    trendChart && trendChart.resize();
+    funnelChart && funnelChart.resize();
+    reasonChart && reasonChart.resize();
+  });
+});
+  </script>
+  <!-- [/JSMOD] 7ae_图表初始化 -- 初始化所有ECharts图表 -->
+  <!-- [JSMOD] s7d_会话管理功能 -->
+  <script id="session-manager">
+   document.addEventListener('DOMContentLoaded', function() {
+       const sessionList = document.getElementById('session-list');
+       const newChatBtn = document.getElementById('new-chat-btn');
+       const deleteCurrentChatBtn = document.getElementById('delete-current-chat');
+       const currentChatTitle = document.getElementById('current-chat-title');
+       const chatContainer = document.getElementById('chat-container');
+       const mobileSessionToggle = document.getElementById('mobile-session-toggle');
+       const sessionSidebar = document.querySelector('[data-module="x9z_会话列表侧边栏"]');
+       
+       // 移动端会话侧边栏切换
+       mobileSessionToggle.addEventListener('click', function() {
+         document.querySelector('.x9z_会话列表侧边栏').classList.toggle('hidden');
+       });
+     document.addEventListener('DOMContentLoaded', function() {
+       const sessionList = document.getElementById('session-list');
+       const newChatBtn = document.getElementById('new-chat-btn');
+       const deleteCurrentChatBtn = document.getElementById('delete-current-chat');
+       const currentChatTitle = document.getElementById('current-chat-title');
+       const chatContainer = document.getElementById('chat-container');
+       
+       // 初始化会话数据
+       let currentSessionId = 1;
+       let sessions = {
+{
+           id: 1,
+           title: '新会话',
+           messages: [{
+             role: 'ai',
+             content: '👋 你好！我是AI助手。你可以随时向我提问，你的所有交互行为都会被记录用于体验分析。请开始对话吧！'
+           }]
+         }
+       };
+       
+       // 渲染会话列表
+       function renderSessionList() {
+         sessionList.innerHTML = '';
+         Object.values(sessions).forEach(session => {
+           const sessionItem = document.createElement('div');
+           sessionItem.className = `flex items-center justify-between p-3 rounded-lg mb-2 cursor-pointer transition-colors ${session.id === currentSessionId ? 'bg-primary/10 border border-primary/20' : 'hover:bg-gray-100'}`;
+           sessionItem.dataset.sessionId = session.id;
+           sessionItem.innerHTML = `
+             <div class="flex items-center gap-2 flex-1 truncate">
+               <i class="fas fa-comment text-gray-400"></i>
+               <span class="truncate">${session.title}</span>
+             </div>
+             <button class="text-gray-400 hover:text-danger session-delete-btn" data-session-id="${session.id}" title="删除会话">
+               <i class="fas fa-times"></i>
+             </button>
+           `;
+           sessionList.appendChild(sessionItem);
+           
+           // 会话切换事件
+           sessionItem.querySelector('.flex-1').addEventListener('click', () => switchSession(session.id));
+           
+           // 会话删除事件
+           sessionItem.querySelector('.session-delete-btn').addEventListener('click', (e) => {
+             e.stopPropagation();
+             deleteSession(session.id);
+           });
+         });
+       }
+       
+// 切换会话
+       function switchSession(sessionId) {
+         currentSessionId = sessionId;
+         const session = sessions[sessionId];
+         currentChatTitle.textContent = session.title;
+         
+         // 更新页面顶部的会话标题显示
+         if (window.updateCurrentSessionTitle) {
+           window.updateCurrentSessionTitle(session.title);
+         }
+         
+         // 渲染会话消息
+         chatContainer.innerHTML = '';
+         session.messages.forEach(msg => {
+           addMessageToChat(msg.role, msg.content, false);
+         });
+         
+         scrollToBottom();
+         renderSessionList();
+         recordBehavior('session_switch', { sessionId });
+       }
+       
+// 创建新会话
+       function createNewSession() {
+         const newSessionId = Date.now();
+         sessions[newSessionId] = {
+           id: newSessionId,
+           title: '新会话',
+           messages: [{
+             role: 'ai',
+             content: '👋 你好！我是AI助手。你可以随时向我提问，你的所有交互行为都会被记录用于体验分析。请开始对话吧！'
+           }]
+         };
+         currentSessionId = newSessionId;
+         renderSessionList();
+         switchSession(newSessionId);
+         recordBehavior('session_create', { sessionId: newSessionId });
+         showBehaviorRecorded('新会话已创建');
+       }
+       
+       // 删除会话
+       function deleteSession(sessionId) {
+         if (Object.keys(sessions).length === 1) {
+           showBehaviorRecorded('至少保留一个会话');
+           return;
+         }
+         
+         delete sessions[sessionId];
+         if (currentSessionId === sessionId) {
+           const firstSessionId = Object.keys(sessions)[0];
+           switchSession(firstSessionId);
+         }
+         renderSessionList();
+         recordBehavior('session_delete', { sessionId });
+         showBehaviorRecorded('会话已删除');
+       }
+       
+// 更新会话标题
+       function updateSessionTitle(sessionId, newTitle) {
+         sessions[sessionId].title = newTitle;
+         if (currentSessionId === sessionId) {
+           currentChatTitle.textContent = newTitle;
+           // 更新页面顶部的会话标题显示
+           if (window.updateCurrentSessionTitle) {
+             window.updateCurrentSessionTitle(newTitle);
+           }
+         }
+         renderSessionList();
+       }
+       
+       // 监听新建会话按钮
+       newChatBtn.addEventListener('click', createNewSession);
+       
+       // 监听删除当前会话按钮
+       deleteCurrentChatBtn.addEventListener('click', () => deleteSession(currentSessionId));
+       
+       // 重写添加消息函数，支持会话存储
+       const originalAddMessageToChat = window.addMessageToChat;
+       window.addMessageToChat = function(role, content, record = true) {
+         originalAddMessageToChat(role, content);
+         
+         // 保存到当前会话
+         if (record) {
+           sessions[currentSessionId].messages.push({ role, content });
+           
+           // 如果是第一条用户消息，更新会话标题
+           if (role === 'user' && sessions[currentSessionId].messages.length === 2) {
+             const newTitle = content.substring(0, 20) + (content.length > 20 ? '...' : '');
+             updateSessionTitle(currentSessionId, newTitle);
+           }
+         }
+       };
+       
+       // 重写清空历史函数
+       const originalClearHistory = document.getElementById('clear-history').onclick;
+       document.getElementById('clear-history').onclick = function() {
+         chatContainer.innerHTML = "<div class=\"flex mb-6\">\n                <div class=\"chat-bubble-ai\">\n                    <p>\uD83D\uDC4B \u4F60\u597D\uFF01\u6211\u662FAI\u52A9\u624B\u3002\u4F60\u53EF\u4EE5\u968F\u65F6\u5411\u6211\u63D0\u95EE\uFF0C\u4F60\u7684\u6240\u6709\u4EA4\u4E92\u884C\u4E3A\u90FD\u4F1A\u88AB\u8BB0\u5F55\u7528\u4E8E\u4F53\u9A8C\u5206\u6790\u3002\u8BF7\u5F00\u59CB\u5BF9\u8BDD\u5427\uFF01</p>\n                </div>\n            </div>";
+         sessions[currentSessionId].messages = [{
+           role: 'ai',
+           content: '👋 你好！我是AI助手。你可以随时向我提问，你的所有交互行为都会被记录用于体验分析。请开始对话吧！'
+         }];
+         recordBehavior('clear_history', { sessionId: currentSessionId });
+         addJourneyStep('清空对话', getCurrentTime(), '用户清空了对话历史', 'neutral');
+       };
+       
+       // 初始化渲染
+       renderSessionList();
+     });
+  </script>
+<!-- [/JSMOD] s7d_会话管理功能 -- 处理会话的创建、切换、删除、标题更新等功能 -->
+
+  <!-- [JSMOD] k9x_对话选择菜单功能 -->
+  <script id="session-select-menu">
+    document.addEventListener('DOMContentLoaded', function() {
+      const sessionSelectBtn = document.getElementById('session-select-btn');
+      const sessionDropdown = document.getElementById('session-dropdown');
+      const sessionDropdownList = document.getElementById('session-dropdown-list');
+      const newSessionBtn = document.getElementById('new-session-btn');
+      const currentSessionTitle = document.getElementById('current-session-title');
+      
+      // 切换下拉菜单显示/隐藏
+      sessionSelectBtn.addEventListener('click', function() {
+        sessionDropdown.classList.toggle('hidden');
+        updateSessionDropdownList();
+      });
+      
+      // 点击页面其他区域关闭下拉菜单
+      document.addEventListener('click', function(e) {
+        if (!sessionSelectBtn.contains(e.target) && !sessionDropdown.contains(e.target)) {
+          sessionDropdown.classList.add('hidden');
+        }
+      });
+      
+      // 更新下拉菜单中的会话列表
+      function updateSessionDropdownList() {
+        sessionDropdownList.innerHTML = '';
+        Object.values(sessions).forEach(session => {
+          const sessionItem = document.createElement('div');
+          sessionItem.className = `px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer ${session.id === currentSessionId ? 'bg-primary/10 text-primary' : ''}`;
+          sessionItem.dataset.sessionId = session.id;
+          sessionItem.innerHTML = `
+            <div class="flex items-center gap-2">
+              <i class="fas fa-comment"></i>
+              <span class="truncate">${session.title}</span>
+            </div>
+          `;
+          sessionDropdownList.appendChild(sessionItem);
+          
+          // 会话切换事件
+          sessionItem.addEventListener('click', () => {
+            switchSession(session.id);
+            sessionDropdown.classList.add('hidden');
+          });
+        });
+      }
+      
+      // 新建会话
+      newSessionBtn.addEventListener('click', function() {
+        createNewSession();
+        sessionDropdown.classList.add('hidden');
+      });
+      
+      // 更新当前会话标题显示
+      window.updateCurrentSessionTitle = function(title) {
+        currentSessionTitle.textContent = title;
+      };
+      
+      // 初始化当前会话标题
+      updateCurrentSessionTitle(sessions[currentSessionId].title);
+    });
+  </script>
+  <!-- [/JSMOD] k9x_对话选择菜单功能 -- 处理对话选择菜单的下拉显示、会话切换和新建对话功能 -->
+ </body>
+</html>
